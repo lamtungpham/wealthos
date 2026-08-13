@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>WealthOS — Quản lý gia sản cá nhân</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+ tailwind.config={theme:{extend:{fontFamily:{sans:['Inter','ui-sans-serif','system-ui']},colors:{ink:'#102a43',mint:'#d9f7ef',teal:'#0f766e',coral:'#ef786f'}}}};
+</script>
+<style>
+ @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap');
+ *{box-sizing:border-box} body{font-family:'Be Vietnam Pro',sans-serif;background:#f5f8fa;color:#16324f} .app{min-height:100vh}
+ .sidebar{background:#102a43;color:#cbd8e5}.brand{color:#fff}.nav-item{transition:.2s}.nav-item:hover,.nav-item.active{background:#1d4460;color:#fff}.nav-item.active{box-shadow:inset 3px 0 #59d4b5}
+ .card{background:#fff;border:1px solid #e7eef2;border-radius:18px;box-shadow:0 8px 24px rgba(16,42,67,.045)} .metric{border-left:4px solid #59d4b5}.muted{color:#6b8093}.btn{border:0;border-radius:10px;padding:11px 16px;font-weight:700;cursor:pointer;transition:.2s}.btn-primary{background:#0f766e;color:#fff}.btn-primary:hover{background:#0b5e58;transform:translateY(-1px)} .btn-ghost{background:#edf6f4;color:#0f766e}.btn-danger{background:#fff0ef;color:#b54d47}
+ input,select,textarea{width:100%;border:1px solid #dbe6eb;border-radius:10px;padding:11px 12px;outline:none;background:#fff;color:#16324f} input:focus,select:focus,textarea:focus{border-color:#47bca4;box-shadow:0 0 0 3px #d9f7ef} label{font-size:12px;font-weight:700;color:#61788b;display:block;margin-bottom:6px}
+ .step{display:flex;align-items:center;gap:8px;color:#90a3b2;font-size:12px;font-weight:700}.step-dot{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#eaf0f3}.step.done,.step.current{color:#0f766e}.step.done .step-dot,.step.current .step-dot{background:#0f766e;color:#fff}.step-line{height:1px;background:#dbe6eb;flex:1;min-width:18px}.tag{border-radius:99px;padding:5px 10px;font-size:11px;font-weight:700}.good{background:#d9f7ef;color:#0f766e}.warn{background:#fff3d8;color:#9a6a12}.bad{background:#ffe4e1;color:#b54d47}
+ .bar{height:9px;background:#edf2f4;border-radius:99px;overflow:hidden}.bar>span{display:block;height:100%;border-radius:99px;background:#47bca4}.bar.orange>span{background:#f1b657}.bar.red>span{background:#ef786f}
+ .asset-row{display:grid;grid-template-columns:1fr 140px 100px;gap:14px;align-items:center;padding:10px 0;border-bottom:1px solid #eef3f5}.asset-row:last-child{border-bottom:0}.section-title{font-size:13px;font-weight:800;color:#16324f;text-transform:uppercase;letter-spacing:.04em}
+ .quiz-option{transition:all .2s;border:2px solid #e7eef2;border-radius:14px;padding:14px 16px;cursor:pointer;margin-bottom:8px;display:flex;align-items:flex-start;gap:12px}.quiz-option:hover{border-color:#47bca4;background:#f8fffe}.quiz-option.selected{border-color:#0f766e;background:#d9f7ef}.quiz-option input[type=radio]{margin-top:3px;accent-color:#0f766e}
+ .quiz-progress{height:6px;background:#edf2f4;border-radius:99px;overflow:hidden;margin-bottom:20px}.quiz-progress>span{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#47bca4,#0f766e);transition:width .3s}
+ @media(max-width:900px){.sidebar{display:none}.main{width:100%!important}.asset-row{grid-template-columns:1fr 120px 82px}.desktop-only{display:none!important}} @media(max-width:600px){.asset-row{grid-template-columns:1fr 110px}.asset-row .pct{display:none}.grid-mobile{grid-template-columns:1fr!important}.header-title{font-size:22px}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+const assetGroups=[
+ {id:'liquid',title:'Thanh khoản & Tiêu dùng',color:'#47bca4',items:[['cash','Tiền mặt'],['bank','Tiền gửi ngân hàng']]},
+ {id:'protect',title:'Tích lũy & Bảo vệ',color:'#6f91e8',items:[['saving','Tiền gửi tiết kiệm'],['gold','Vàng'],['silver','Bạc'],['fx','Ngoại tệ'],['life','Hợp đồng bảo hiểm nhân thọ']]},
+ {id:'growth',title:'Đầu tư & Tăng trưởng',color:'#f1b657',items:[['fund','Chứng chỉ quỹ'],['bond','Trái phiếu'],['stock','Cổ phiếu'],['property','Bất động sản']]},
+ {id:'risk',title:'Mạo hiểm',color:'#ef786f',items:[['crypto','Crypto']]}
+];
+const debtGroups=[
+ {id:'consumer',title:'Nợ tiêu dùng & Thẻ tín dụng',color:'#ef786f',items:[['cardDebt','Dư nợ thẻ tín dụng'],['installment','Mua trả góp'],['appLoan','Vay qua app'],['financeLoan','Vay tín chấp công ty tài chính']]},
+ {id:'secured',title:'Nợ thế chấp & Hình thành tài sản',color:'#f1b657',items:[['homeLoan','Vay mua nhà'],['carLoan','Vay mua ô tô'],['businessLoan','Vay vốn kinh doanh']]},
+ {id:'personal',title:'Nợ cá nhân',color:'#6f91e8',items:[['personalLoan','Vay mượn cá nhân']]}
+];
+
+// Grable-Lytton 13-Question Financial Risk Tolerance Assessment (Vietnamese adaptation)
+const quizQuestions=[
+ {q:'Bạn bè thân nhất sẽ mô tả bạn là người như thế nào về việc chấp nhận rủi ro?',opts:['Thích mạo hiểm','Sẵn sàng chấp nhận rủi ro sau khi nghiên cứu kỹ','Thận trọng','Rất ngại rủi ro'],scores:[4,3,2,1]},
+ {q:'Bạn tham gia một gameshow và được chọn một trong các phần thưởng sau. Bạn chọn gì?',opts:['Chắc chắn nhận 10 triệu đồng','50% cơ hội nhận 50 triệu đồng','25% cơ hội nhận 100 triệu đồng','5% cơ hội nhận 1 tỷ đồng'],scores:[1,2,3,4]},
+ {q:'Bạn vừa tiết kiệm đủ tiền cho kỳ nghỉ mơ ước. 3 tuần trước khi đi, bạn bị mất việc. Bạn sẽ:',opts:['Hủy kỳ nghỉ','Đi một chuyến tiết kiệm hơn nhiều','Vẫn đi theo kế hoạch, vì cần thời gian chuẩn bị tìm việc mới','Kéo dài kỳ nghỉ, vì đây có thể là cơ hội cuối cùng'],scores:[1,2,3,4]},
+ {q:'Nếu bất ngờ nhận được 200 triệu đồng để đầu tư, bạn sẽ làm gì?',opts:['Gửi tiết kiệm ngân hàng hoặc mua chứng chỉ tiền gửi','Đầu tư vào trái phiếu chất lượng cao hoặc quỹ trái phiếu','Đầu tư vào cổ phiếu hoặc quỹ cổ phiếu'],scores:[1,2,3]},
+ {q:'Về kinh nghiệm, bạn cảm thấy thoải mái thế nào khi đầu tư cổ phiếu hoặc quỹ cổ phiếu?',opts:['Hoàn toàn không thoải mái','Tương đối thoải mái','Rất thoải mái'],scores:[1,2,3]},
+ {q:'Khi nghĩ đến từ "rủi ro", từ nào xuất hiện đầu tiên trong đầu bạn?',opts:['Mất mát','Không chắc chắn','Cơ hội','Hồi hộp/Phấn khích'],scores:[1,2,3,4]},
+ {q:'Chuyên gia dự đoán vàng và bất động sản sẽ tăng giá; trái phiếu có thể giảm. Phần lớn tài sản của bạn đang ở trái phiếu chính phủ lãi cao. Bạn sẽ:',opts:['Giữ nguyên trái phiếu','Bán 50% trái phiếu, chuyển sang vàng/BĐS','Bán toàn bộ trái phiếu, chuyển sang vàng/BĐS','Bán hết và vay thêm để mua vàng/BĐS'],scores:[1,2,3,4]},
+ {q:'Với các kịch bản đầu tư sau (lãi tốt nhất / lỗ xấu nhất), bạn chọn phương án nào?',opts:['Lãi tối đa 2 triệu / Không lỗ','Lãi tối đa 8 triệu / Lỗ tối đa 2 triệu','Lãi tối đa 26 triệu / Lỗ tối đa 8 triệu','Lãi tối đa 48 triệu / Lỗ tối đa 24 triệu'],scores:[1,2,3,4]},
+ {q:'Ngoài những gì bạn đang có, bạn được tặng thêm 100 triệu. Bạn phải chọn:',opts:['Chắc chắn nhận thêm 50 triệu','50% cơ hội nhận thêm 100 triệu, 50% không nhận gì'],scores:[1,3]},
+ {q:'Ngoài những gì bạn đang có, bạn được tặng 200 triệu. Bạn phải chọn:',opts:['Chắc chắn mất 50 triệu','50% cơ hội mất 100 triệu, 50% không mất gì'],scores:[1,3]},
+ {q:'Giả sử được thừa kế 1 tỷ đồng và BẮT BUỘC phải đầu tư toàn bộ vào MỘT lựa chọn. Bạn chọn:',opts:['Tiết kiệm ngân hàng hoặc quỹ thị trường tiền tệ','Quỹ cân bằng (cổ phiếu + trái phiếu)','Danh mục 15 cổ phiếu riêng lẻ','Hàng hóa: vàng, bạc, dầu, crypto'],scores:[1,2,3,4]},
+ {q:'Nếu phải đầu tư 200 triệu, phương án phân bổ nào hấp dẫn bạn nhất?',opts:['60% rủi ro thấp, 30% trung bình, 10% rủi ro cao','30% rủi ro thấp, 40% trung bình, 30% rủi ro cao','10% rủi ro thấp, 40% trung bình, 50% rủi ro cao'],scores:[1,2,3]},
+ {q:'Một người bạn tin cậy mời bạn góp vốn vào dự án có thể lãi 50-100 lần, nhưng xác suất thành công chỉ 20%. Nếu thất bại, mất toàn bộ. Bạn sẽ đầu tư bao nhiêu?',opts:['Không đầu tư','1 tháng thu nhập','3 tháng thu nhập','6 tháng thu nhập'],scores:[1,2,3,4]}
+];
+
+// Score interpretation: 13-18 = Very Conservative, 19-22 = Conservative, 23-28 = Moderate, 29-32 = Aggressive, 33-47 = Very Aggressive
+function getQuizCategory(score){
+ if(score<=18) return {label:'Rất thận trọng',color:'#6f91e8',desc:'Bạn ưu tiên bảo toàn vốn tuyệt đối. Phù hợp với tiền gửi, trái phiếu chính phủ, bảo hiểm. Nên giữ tối thiểu 80% tài sản ở nhóm an toàn.',alloc:'80% an toàn – 15% trung bình – 5% tăng trưởng'};
+ if(score<=22) return {label:'Thận trọng',color:'#47bca4',desc:'Bạn chấp nhận rủi ro nhỏ để đạt lợi nhuận cao hơn lạm phát. Phù hợp với trái phiếu, quỹ cân bằng, tiết kiệm dài hạn.',alloc:'60% an toàn – 30% trung bình – 10% tăng trưởng'};
+ if(score<=28) return {label:'Cân bằng',color:'#f1b657',desc:'Bạn tìm kiếm sự cân đối giữa tăng trưởng và bảo toàn. Phù hợp với danh mục đa dạng: quỹ cổ phiếu, trái phiếu, BĐS.',alloc:'40% an toàn – 35% trung bình – 25% tăng trưởng'};
+ if(score<=32) return {label:'Năng động',color:'#ef786f',desc:'Bạn sẵn sàng chịu biến động để theo đuổi lợi nhuận cao. Phù hợp với cổ phiếu, quỹ tăng trưởng, BĐS đầu tư.',alloc:'20% an toàn – 30% trung bình – 50% tăng trưởng'};
+ return {label:'Mạo hiểm',color:'#b54d47',desc:'Bạn chấp nhận rủi ro rất cao để tối đa hóa lợi nhuận. Phù hợp với cổ phiếu tăng trưởng, crypto, startup, đòn bẩy.',alloc:'10% an toàn – 20% trung bình – 70% tăng trưởng'};
+}
+
+const defaultData={profile:{goal:'Tự do tài chính',age:30,targetAge:45,quizAnswers:Array(13).fill(-1),quizScore:null},cashflow:{income:[0,0,0],expense:[0,0,0]},assets:{},debts:{}};
+let data=JSON.parse(localStorage.getItem('wealthOSData')||'null')||defaultData;
+// Migration: if old quiz format
+if(data.profile.quizAnswers===undefined){data.profile.quizAnswers=Array(13).fill(-1);data.profile.quizScore=null;}
+let step=0; let charts={}; let quizPage=0;
+const vnd=n=>new Intl.NumberFormat('vi-VN',{style:'currency',currency:'VND',maximumFractionDigits:0}).format(Number(n)||0);
+const compact=n=>{n=Number(n)||0;if(n>=1e9)return (n/1e9).toFixed(1)+' tỷ';if(n>=1e6)return (n/1e6).toFixed(1)+' tr';return vnd(n)};
+const sum=o=>Object.values(o||{}).reduce((a,b)=>a+(Number(b)||0),0);
+function save(){localStorage.setItem('wealthOSData',JSON.stringify(data));toast('Đã lưu dữ liệu vào trình duyệt');render()}
+function toast(t){let e=document.getElementById('toast');if(!e)return;e.textContent=t;e.classList.remove('hidden');setTimeout(()=>e.classList.add('hidden'),2200)}
+function totals(){return {assets:sum(data.assets),debts:sum(data.debts),net:sum(data.assets)-sum(data.debts),income:sum(data.cashflow.income)/3,expense:sum(data.cashflow.expense)/3}}
+function pct(a,b){return b?Math.round(a/b*100):0}
+function inputNumber(kind,key,val){data[kind][key]=Math.max(0,Number(val)||0);localStorage.setItem('wealthOSData',JSON.stringify(data));render(false)}
+function quizResult(){
+ let score=data.profile.quizScore;
+ if(score===null||score===undefined) return null;
+ return getQuizCategory(score);
+}
+function calcQuizScore(){
+ let total=0, answered=0;
+ for(let i=0;i<13;i++){
+  let a=data.profile.quizAnswers[i];
+  if(a>=0){total+=quizQuestions[i].scores[a];answered++;}
+ }
+ if(answered===13){data.profile.quizScore=total;localStorage.setItem('wealthOSData',JSON.stringify(data));}
+ return answered===13?total:null;
+}
+function analysis(){let t=totals(), savings=t.income-t.expense, debtRatio=t.assets? t.debts/t.assets:0, emergency=sum({cash:data.assets.cash,bank:data.assets.bank,saving:data.assets.saving}), months=t.expense?emergency/t.expense:0, risk=sum({crypto:data.assets.crypto,stock:data.assets.stock})/Math.max(t.assets,1);return {t,savings,debtRatio,months,risk}}
+function chart(id,type,labels,values,colors){let ctx=document.getElementById(id);if(!ctx)return;if(charts[id])charts[id].destroy();charts[id]=new Chart(ctx,{type,data:{labels,datasets:[{data:values,backgroundColor:colors,borderWidth:0,borderRadius:type==='bar'?6:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:type!=='bar',position:'bottom',labels:{font:{family:'Be Vietnam Pro',size:11},usePointStyle:true,padding:14}}},scales:type==='bar'?{x:{grid:{display:false},ticks:{font:{family:'Be Vietnam Pro',size:10}}},y:{grid:{color:'#edf2f4'},ticks:{callback:v=>compact(v),font:{family:'Be Vietnam Pro',size:10}}}}:{}}});}
+function nav(){return `<aside class="sidebar w-64 shrink-0 min-h-screen p-5 fixed left-0 top-0"><div class="brand flex items-center gap-3 text-lg font-extrabold mb-10"><div class="w-10 h-10 rounded-xl bg-teal-400 grid place-items-center text-slate-900">W</div> WealthOS</div><div class="text-[10px] uppercase tracking-widest text-slate-400 mb-3">Không gian của bạn</div><div class="space-y-1">${[['dashboard','Tổng quan','▦'],['profile','Mục tiêu & Tính cách','◎'],['cashflow','Thu & Chi','↕'],['assets','Tài sản','◈'],['debts','Khoản nợ','⌁'],['insights','Phân tích & Gợi ý','✦']].map((x,i)=>`<button onclick="go(${i})" class="nav-item ${step===i?'active':''} w-full text-left rounded-xl px-3 py-3 flex gap-3 items-center text-sm"><span class="text-lg w-5">${x[2]}</span>${x[1]}</button>`).join('')}</div><div class="absolute bottom-5 left-5 right-5 text-xs text-slate-400 leading-5">Dữ liệu chỉ lưu trên thiết bị của bạn.<br><button onclick="resetData()" class="underline mt-2">Xóa toàn bộ dữ liệu</button></div></aside>`}
+function header(title,sub){return `<header class="flex justify-between items-start gap-4 mb-7"><div><div class="text-xs text-teal-700 font-bold mb-2">WEALTHOS / CÁ NHÂN</div><h1 class="header-title text-3xl font-extrabold tracking-tight">${title}</h1><p class="muted text-sm mt-2">${sub}</p></div><button onclick="save()" class="btn btn-primary hidden sm:block">Lưu thay đổi</button></header>`}
+function metric(label,value,sub,cls=''){return `<div class="card metric p-5 ${cls}"><div class="muted text-xs font-semibold">${label}</div><div class="font-extrabold text-xl mt-2">${value}</div><div class="text-xs muted mt-2">${sub}</div></div>`}
+function dashboard(){let a=analysis(), allocation=assetGroups.map(g=>[g.title,g.items.reduce((s,x)=>s+(Number(data.assets[x[0]])||0),0),g.color]).filter(x=>x[1]>0);let qr=quizResult();return header('Tổng quan gia sản','Bức tranh tài chính của bạn, rõ ràng và dễ hành động.')+`<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">${metric('TỔNG TÀI SẢN',compact(a.t.assets),'Giá trị bạn đang sở hữu')}${metric('TỔNG KHOẢN NỢ',compact(a.t.debts),a.debtRatio>0.5?'Cần ưu tiên kiểm soát':'Trong vùng an toàn',a.debtRatio>0.5?'border-coral':'')}${metric('GIÁ TRỊ RÒNG',compact(a.t.net),'Tài sản trừ đi các khoản nợ')}${metric('DÒNG TIỀN RÒNG / THÁNG',compact(a.savings),a.savings>=0?'Đang tích lũy':'Đang thâm hụt',a.savings<0?'border-coral':'')}</div><div class="grid lg:grid-cols-3 gap-5"><div class="card p-5 lg:col-span-2"><div class="flex justify-between items-center mb-3"><div><h2 class="font-extrabold">Sức khỏe tài chính</h2><p class="muted text-xs mt-1">Các chỉ số quan trọng theo dữ liệu hiện tại</p></div><span class="tag ${a.savings>=0?'good':'bad'}">${a.savings>=0?'Ổn định':'Cần điều chỉnh'}</span></div><div class="grid md:grid-cols-2 gap-5 mt-5"><div><div class="flex justify-between text-xs mb-2"><span>Tỷ lệ nợ / tài sản</span><b>${pct(a.t.debts,a.t.assets)}%</b></div><div class="bar ${a.debtRatio>.5?'red':a.debtRatio>.3?'orange':''}"><span style="width:${Math.min(100,pct(a.t.debts,a.t.assets))}%"></span></div><p class="muted text-[11px] mt-2">Mục tiêu khuyến nghị: dưới 30%</p></div><div><div class="flex justify-between text-xs mb-2"><span>Quỹ dự phòng</span><b>${a.months.toFixed(1)} tháng</b></div><div class="bar ${a.months<3?'orange':''}"><span style="width:${Math.min(100,a.months/6*100)}%"></span></div><p class="muted text-[11px] mt-2">Mục tiêu: 3–6 tháng chi phí</p></div></div><div class="mt-6" style="height:210px"><canvas id="cashChart"></canvas></div></div><div class="card p-5"><h2 class="font-extrabold">Phân bổ tài sản</h2><p class="muted text-xs mt-1">Theo nhóm tài sản</p><div style="height:220px" class="mt-3"><canvas id="allocationChart"></canvas></div>${allocation.length?allocation.map(x=>`<div class="flex justify-between text-xs mt-3"><span><i class="inline-block w-2 h-2 rounded-full mr-2" style="background:${x[2]}"></i>${x[0]}</span><b>${compact(x[1])}</b></div>`).join(''):'<p class="muted text-sm mt-6 text-center">Hãy nhập tài sản để xem phân bổ.</p>'}</div></div>${qr?`<div class="card p-5 mt-5"><div class="flex justify-between items-center"><h2 class="font-extrabold">Hồ sơ rủi ro của bạn</h2><span class="tag" style="background:${qr.color}20;color:${qr.color}">${qr.label} (${data.profile.quizScore}/47 điểm)</span></div><p class="muted text-sm mt-3">${qr.desc}</p><p class="text-sm mt-2"><b>Phân bổ khuyến nghị:</b> ${qr.alloc}</p></div>`:''}<div class="card p-5 mt-5"><div class="flex justify-between items-center"><div><h2 class="font-extrabold">Việc nên làm tiếp theo</h2><p class="muted text-xs mt-1">Gợi ý được tạo từ dữ liệu của bạn</p></div><button onclick="go(5)" class="btn btn-ghost text-xs">Xem phân tích</button></div><div class="grid md:grid-cols-3 gap-3 mt-5"><div class="bg-slate-50 rounded-xl p-4"><div class="text-teal-700 text-lg">01</div><b class="text-sm">${a.months<3?'Tăng quỹ dự phòng':'Duy trì quỹ dự phòng'}</b><p class="muted text-xs mt-1">${a.months<3?'Ưu tiên tiền mặt và tiền gửi ngắn hạn.':'Bạn đang có lớp đệm tương đối tốt.'}</p></div><div class="bg-slate-50 rounded-xl p-4"><div class="text-teal-700 text-lg">02</div><b class="text-sm">${a.debtRatio>.3?'Rà soát khoản nợ':'Tối ưu chi phí lãi vay'}</b><p class="muted text-xs mt-1">${a.debtRatio>.3?'Ưu tiên nợ lãi suất cao trước.':'Theo dõi để giữ tỷ lệ nợ thấp.'}</p></div><div class="bg-slate-50 rounded-xl p-4"><div class="text-teal-700 text-lg">03</div><b class="text-sm">Đối chiếu mục tiêu</b><p class="muted text-xs mt-1">Cập nhật mục tiêu để đo khoảng cách tài chính.</p></div></div></div>`}
+function wizardTop(){return `<div class="card p-4 mb-5"><div class="flex items-center gap-2">${['Mục tiêu','Thu & Chi','Tài sản','Khoản nợ','Hoàn tất'].map((x,i)=>`<div class="step ${step>i?'done':''} ${step===i?'current':''}"><span class="step-dot">${step>i?'✓':i+1}</span><span class="hidden sm:block">${x}</span></div>${i<4?'<div class="step-line"></div>':''}`).join('')}</div></div>`}
+
+function quizUI(){
+ let answered=data.profile.quizAnswers.filter(x=>x>=0).length;
+ let score=data.profile.quizScore;
+ if(score!==null){
+  let cat=getQuizCategory(score);
+  return `<div class="border-t mt-6 pt-6"><div class="section-title mb-3">BÀI ĐÁNH GIÁ KHẢ NĂNG CHỊU RỦI RO TÀI CHÍNH</div><p class="text-xs muted mb-2">Dựa trên thang đo Grable & Lytton (13 câu hỏi) — được sử dụng rộng rãi trong ngành tài chính cá nhân.</p><div class="card p-5 mt-4" style="border-left:4px solid ${cat.color}"><div class="flex justify-between items-center"><div><div class="text-xs muted font-bold">KẾT QUẢ CỦA BẠN</div><div class="text-2xl font-extrabold mt-1" style="color:${cat.color}">${cat.label}</div><div class="text-sm muted mt-1">${score}/47 điểm</div></div><div class="text-right"><div class="w-16 h-16 rounded-full grid place-items-center text-white font-extrabold text-lg" style="background:${cat.color}">${score}</div></div></div><p class="text-sm mt-4 leading-6">${cat.desc}</p><p class="text-sm mt-2"><b>Phân bổ tài sản khuyến nghị:</b> ${cat.alloc}</p></div><button onclick="data.profile.quizAnswers=Array(13).fill(-1);data.profile.quizScore=null;quizPage=0;localStorage.setItem('wealthOSData',JSON.stringify(data));render()" class="btn btn-ghost text-xs mt-4">Làm lại bài test</button></div>`;
+ }
+ // Show quiz questions
+ let perPage=3;
+ let totalPages=Math.ceil(13/perPage);
+ let startQ=quizPage*perPage;
+ let endQ=Math.min(startQ+perPage,13);
+ let html=`<div class="border-t mt-6 pt-6"><div class="section-title mb-3">BÀI ĐÁNH GIÁ KHẢ NĂNG CHỊU RỦI RO TÀI CHÍNH</div><p class="text-xs muted mb-1">Dựa trên thang đo Grable & Lytton (13 câu hỏi) — công cụ đánh giá rủi ro tài chính được sử dụng rộng rãi bởi các chuyên gia hoạch định tài chính.</p><p class="text-xs muted mb-4">Trả lời tất cả 13 câu để nhận kết quả. Đã trả lời: <b>${answered}/13</b></p>`;
+ html+=`<div class="quiz-progress"><span style="width:${pct(answered,13)}%"></span></div>`;
+ for(let i=startQ;i<endQ;i++){
+  let qq=quizQuestions[i];
+  html+=`<div class="mb-6"><div class="font-bold text-sm mb-3"><span class="text-teal-700">Câu ${i+1}.</span> ${qq.q}</div>`;
+  qq.opts.forEach((opt,oi)=>{
+   let sel=data.profile.quizAnswers[i]===oi;
+   html+=`<div class="quiz-option ${sel?'selected':''}" onclick="selectQuizAnswer(${i},${oi})"><input type="radio" name="q${i}" ${sel?'checked':''} /><span class="text-sm">${opt}</span></div>`;
+  });
+  html+=`</div>`;
+ }
+ html+=`<div class="flex justify-between items-center mt-4">`;
+ if(quizPage>0) html+=`<button onclick="quizPage--;render()" class="btn btn-ghost">← Trang trước</button>`; else html+=`<div></div>`;
+ if(quizPage<totalPages-1) html+=`<button onclick="quizPage++;render()" class="btn btn-primary">Trang tiếp →</button>`;
+ else html+=`<button onclick="finishQuiz()" class="btn btn-primary" ${answered<13?'disabled style="opacity:0.5"':''}>Xem kết quả ✓</button>`;
+ html+=`</div></div>`;
+ return html;
+}
+
+function selectQuizAnswer(qi,oi){
+ data.profile.quizAnswers[qi]=oi;
+ localStorage.setItem('wealthOSData',JSON.stringify(data));
+ render();
+}
+function finishQuiz(){
+ let score=calcQuizScore();
+ if(score!==null) render();
+ else toast('Vui lòng trả lời đủ 13 câu hỏi');
+}
+
+function profile(){return header('Mục tiêu tài chính & Tính cách đầu tư','Bắt đầu bằng điều quan trọng nhất với bạn.')+wizardTop()+`<div class="card p-6 max-w-3xl"><div class="section-title mb-4">Thông tin định hướng</div><div class="grid md:grid-cols-2 gap-4"><div class="md:col-span-2"><label>Mục tiêu tài chính chính của bạn</label><textarea rows="2" onchange="data.profile.goal=this.value;localStorage.setItem('wealthOSData',JSON.stringify(data))">${data.profile.goal}</textarea></div><div><label>Bạn đang bao nhiêu tuổi?</label><input type="number" min="16" max="100" value="${data.profile.age}" onchange="data.profile.age=Number(this.value);localStorage.setItem('wealthOSData',JSON.stringify(data))"></div><div><label>Muốn đạt mục tiêu vào năm bao nhiêu tuổi?</label><input type="number" min="16" max="120" value="${data.profile.targetAge}" onchange="data.profile.targetAge=Number(this.value);localStorage.setItem('wealthOSData',JSON.stringify(data))"></div></div>${quizUI()}<div class="flex justify-end mt-6"><button onclick="go(2)" class="btn btn-primary">Tiếp tục →</button></div></div>`}
+function cashflow(){return header('Thu & Chi 3 tháng gần nhất','Nhập số liệu thực tế để đo dòng tiền và khả năng tích lũy.')+wizardTop()+`<div class="card p-6 max-w-4xl"><div class="grid md:grid-cols-2 gap-7"><div><div class="section-title mb-4 text-teal-700">Thu nhập hàng tháng</div>${[0,1,2].map((i)=>`<div class="mb-3"><label>Tháng ${3-i}</label><input type="number" value="${data.cashflow.income[i]}" oninput="data.cashflow.income[${i}]=Number(this.value)||0;localStorage.setItem('wealthOSData',JSON.stringify(data))"> </div>`).join('')}<div class="bg-mint rounded-xl p-3 mt-4"><span class="muted text-xs">Trung bình 3 tháng</span><b class="block text-teal-700">${vnd(sum(data.cashflow.income)/3)}</b></div></div><div><div class="section-title mb-4 text-coral">Chi tiêu hàng tháng</div>${[0,1,2].map((i)=>`<div class="mb-3"><label>Tháng ${3-i}</label><input type="number" value="${data.cashflow.expense[i]}" oninput="data.cashflow.expense[${i}]=Number(this.value)||0;localStorage.setItem('wealthOSData',JSON.stringify(data))"></div>`).join('')}<div class="bg-rose-50 rounded-xl p-3 mt-4"><span class="muted text-xs">Trung bình 3 tháng</span><b class="block text-coral">${vnd(sum(data.cashflow.expense)/3)}</b></div></div></div><div class="flex justify-between mt-7"><button onclick="go(1)" class="btn btn-ghost">← Quay lại</button><button onclick="go(3)" class="btn btn-primary">Tiếp tục →</button></div></div>`}
+function entries(groups,kind){return groups.map(g=>`<div class="card p-5 mb-4"><div class="flex justify-between items-center mb-3"><div><div class="section-title">${g.title}</div><p class="muted text-xs mt-1">${g.items.length} khoản mục</p></div><span class="w-3 h-3 rounded-full" style="background:${g.color}"></span></div>${g.items.map(([key,label])=>`<div class="asset-row"><div class="text-sm">${label}</div><div><input type="number" value="${data[kind][key]||0}" onchange="inputNumber('${kind}','${key}',this.value)" placeholder="0"></div><div class="pct text-right text-xs muted">${pct(data[kind][key]||0,sum(data[kind]))}%</div></div>`).join('')}</div>`).join('')}
+function assets(){return header('Bạn đang có gì?','Liệt kê tài sản theo giá trị hiện tại, không cần quá chi tiết ngay từ đầu.')+wizardTop()+`<div class="max-w-4xl">${entries(assetGroups,'assets')}<div class="card p-5 flex justify-between items-center"><span class="font-bold">Tổng tài sản</span><b class="text-xl text-teal-700">${compact(sum(data.assets))}</b></div><div class="flex justify-between mt-5"><button onclick="go(2)" class="btn btn-ghost">← Quay lại</button><button onclick="go(4)" class="btn btn-primary">Tiếp tục →</button></div></div>`}
+function debts(){return header('Bạn đang nợ gì?','Ghi nhận dư nợ còn lại, không phải tổng hạn mức được cấp.')+wizardTop()+`<div class="max-w-4xl">${entries(debtGroups,'debts')}<div class="card p-5 flex justify-between items-center"><span class="font-bold">Tổng khoản nợ</span><b class="text-xl text-coral">${compact(sum(data.debts))}</b></div><div class="flex justify-between mt-5"><button onclick="go(3)" class="btn btn-ghost">← Quay lại</button><button onclick="save();go(0)" class="btn btn-primary">Hoàn tất & xem tổng quan ✓</button></div></div>`}
+function insights(){let a=analysis(),goalYears=Math.max(1,data.profile.targetAge-data.profile.age),goalText=data.profile.goal||'mục tiêu của bạn';let qr=quizResult();let tips=[];
+ if(a.months<3)tips.push(['Quỹ dự phòng còn mỏng','Hãy ưu tiên tích lũy tối thiểu 3 tháng chi phí thiết yếu trước khi tăng tỷ trọng tài sản biến động.','warn']);else tips.push(['Quỹ dự phòng đang ổn','Bạn có lớp đệm tốt. Có thể phân bổ phần vượt nhu cầu sang mục tiêu dài hạn.','good']);
+ if(a.debtRatio>.5)tips.push(['Đòn bẩy cao','Nợ đang vượt 50% tổng tài sản. Nên lập kế hoạch giảm nợ lãi cao và tránh vay mới.','bad']);else if(a.debtRatio>.3)tips.push(['Theo dõi tỷ lệ nợ','Tỷ lệ nợ ở mức cần chú ý. So sánh lãi suất từng khoản và ưu tiên trả khoản đắt nhất.','warn']);else tips.push(['Nợ trong vùng kiểm soát','Tỷ lệ nợ thấp so với tài sản. Duy trì kỷ luật thanh toán đúng hạn.','good']);
+ if(a.risk>.35)tips.push(['Tài sản biến động đáng kể','Cổ phiếu và crypto chiếm tỷ trọng cao. Hãy kiểm tra mức chịu rủi ro và thời hạn mục tiêu.','warn']);else tips.push(['Phân bổ có dư địa tăng trưởng','Tài sản biến động chưa chiếm tỷ trọng quá lớn; hãy đầu tư đều đặn theo kế hoạch.','good']);
+ // Quiz-based advice
+ if(qr){
+  let riskAssets=sum({crypto:data.assets.crypto,stock:data.assets.stock,fund:data.assets.fund});
+  let totalA=sum(data.assets)||1;
+  let riskPct=riskAssets/totalA*100;
+  if(qr.label==='Rất thận trọng'&&riskPct>20) tips.push(['Phân bổ không phù hợp tính cách','Tài sản rủi ro cao chiếm '+Math.round(riskPct)+'% — vượt mức phù hợp với hồ sơ "Rất thận trọng" của bạn. Cân nhắc giảm dần.','warn']);
+  else if(qr.label==='Thận trọng'&&riskPct>35) tips.push(['Tỷ trọng rủi ro cao hơn hồ sơ','Với hồ sơ "Thận trọng", tài sản biến động nên dưới 35%. Hiện tại: '+Math.round(riskPct)+'%.','warn']);
+  else if((qr.label==='Năng động'||qr.label==='Mạo hiểm')&&riskPct<15&&totalA>0) tips.push(['Có thể tăng tỷ trọng tăng trưởng','Hồ sơ "'+qr.label+'" cho phép tỷ trọng rủi ro cao hơn. Hiện chỉ '+Math.round(riskPct)+'%. Xem xét phân bổ thêm nếu phù hợp mục tiêu.','good']);
+ }
+ return header('Phân tích & Gợi ý','Biến dữ liệu thành những bước hành động cụ thể.')+`<div class="grid md:grid-cols-3 gap-4 mb-5">${metric('MỤC TIÊU',' '+goalText,`${goalYears} năm để chuẩn bị`)}${metric('TỶ LỆ TIẾT KIỆM',pct(a.savings,a.t.income)+'%',a.savings>=0?'Dòng tiền dương':'Dòng tiền âm',a.savings<0?'border-coral':'')}${metric('HỒ SƠ RỦI RO',qr?qr.label:'Chưa làm test',qr?data.profile.quizScore+'/47 điểm':'Hoàn thành bài test 13 câu')}</div><div class="grid lg:grid-cols-2 gap-5"><div class="card p-5"><h2 class="font-extrabold">Đánh giá tổng hợp</h2><p class="muted text-sm mt-2">Bạn đang có giá trị ròng <b class="text-ink">${compact(a.t.net)}</b>. Với dòng tiền ròng ${compact(a.savings)}/tháng, điều quan trọng là duy trì khoảng cách tích cực giữa thu nhập và chi tiêu trong ${goalYears} năm tới.</p>${qr?`<div class="bg-slate-50 rounded-xl p-4 mt-4"><div class="text-xs font-bold muted mb-1">PHÂN BỔ KHUYẾN NGHỊ THEO HỒ SƠ "${qr.label.toUpperCase()}"</div><p class="text-sm">${qr.alloc}</p></div>`:''}<div class="mt-5 space-y-4">${tips.map(t=>`<div class="flex gap-3"><span class="tag ${t[2]} h-fit">${t[2]==='good'?'TỐT':t[2]==='warn'?'LƯU Ý':'ƯU TIÊN'}</span><div><b class="text-sm">${t[0]}</b><p class="muted text-xs mt-1 leading-5">${t[1]}</p></div></div>`).join('')}</div></div><div class="card p-5"><h2 class="font-extrabold">Nguyên tắc hành động</h2><div class="mt-4 space-y-3">${[['01','Bảo vệ trước','Duy trì quỹ dự phòng và bảo hiểm phù hợp trước khi tối đa hóa lợi nhuận.'],['02','Giảm rò rỉ','Theo dõi nhóm chi tiêu lớn và các khoản nợ có lãi suất cao.'],['03','Đầu tư theo tính cách','Ghép hồ sơ rủi ro với phân bổ tài sản — đừng đầu tư vượt ngưỡng chịu đựng.'],['04','Rà soát định kỳ','Cập nhật dữ liệu mỗi tháng để gợi ý phản ánh đúng thực tế.']].map(x=>`<div class="flex gap-3 p-3 rounded-xl bg-slate-50"><b class="text-teal-700">${x[0]}</b><div><b class="text-sm">${x[1]}</b><p class="muted text-xs mt-1">${x[2]}</p></div></div>`).join('')}</div></div></div>`}
+function renderCharts(){let a=analysis();if(step===0){chart('cashChart','bar',['Thu nhập','Chi tiêu','Dòng tiền ròng'],[a.t.income,a.t.expense,Math.max(0,a.savings)],['#47bca4','#ef786f','#6f91e8']);let vals=assetGroups.map(g=>g.items.reduce((s,x)=>s+(Number(data.assets[x[0]])||0),0));chart('allocationChart','doughnut',assetGroups.map(g=>g.title),vals,assetGroups.map(g=>g.color))}}
+function render(full=true){let content=step===0?dashboard():step===1?profile():step===2?cashflow():step===3?assets():step===4?debts():insights();document.getElementById('app').innerHTML=`<div class="app flex">${nav()}<main class="main ml-64 flex-1 p-5 md:p-9 max-w-[1500px]">${content}<div id="toast" class="hidden fixed bottom-6 right-6 bg-ink text-white px-4 py-3 rounded-xl text-sm shadow-xl">Đã lưu</div></main></div>`;setTimeout(renderCharts,30)}
+function go(i){step=i;render()}function resetData(){if(confirm('Xóa toàn bộ dữ liệu đã lưu?')){localStorage.removeItem('wealthOSData');location.reload()}}
+render();
+</script>
+</body>
+</html>
