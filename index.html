@@ -482,13 +482,51 @@ function render(full=true){
 function go(i){step=i;render()}
 function resetData(){if(confirm('Xóa toàn bộ dữ liệu đã lưu và khôi phục dữ liệu trống?')){data=cloneDefaultData();saveToSupabase();render();}}
 
+// Handle OAuth callback: Supabase client auto-detects hash fragment tokens
+// but we need to ensure proper ordering
+async function initAuth(){
+ // First, check if there's a hash fragment with access_token (OAuth redirect)
+ if(window.location.hash && window.location.hash.includes('access_token')){
+  // Let Supabase process the hash fragment
+  const {data:{session},error}=await supabaseClient.auth.getSession();
+  if(error){
+   // If getSession fails, try to exchange the hash manually
+   console.log('Retrying auth from URL...');
+   const hashParams=new URLSearchParams(window.location.hash.substring(1));
+   const accessToken=hashParams.get('access_token');
+   const refreshToken=hashParams.get('refresh_token');
+   if(accessToken && refreshToken){
+    const {data:sessionData,error:setError}=await supabaseClient.auth.setSession({access_token:accessToken,refresh_token:refreshToken});
+    if(!setError && sessionData?.session?.user){
+     window.location.hash='';
+     await loadUserData(sessionData.session.user);
+     return;
+    }
+   }
+  }
+  if(session?.user){
+   window.location.hash='';
+   await loadUserData(session.user);
+   return;
+  }
+ }
+ // Normal flow: check existing session
+ const {data:{session}}=await supabaseClient.auth.getSession();
+ if(session?.user) await loadUserData(session.user);
+ else {authReady=true;render();}
+}
+
 supabaseClient.auth.onAuthStateChange((event,session)=>{
- if(session?.user){setTimeout(()=>loadUserData(session.user),0);}
- else{currentUser=null;authReady=true;render();}
+ if(event==='SIGNED_IN' && session?.user){
+  if(!currentUser || currentUser.id!==session.user.id){
+   loadUserData(session.user);
+  }
+ } else if(event==='SIGNED_OUT'){
+  currentUser=null;authReady=true;render();
+ }
 });
-supabaseClient.auth.getSession().then(({data:{session}})=>{
- if(session?.user) loadUserData(session.user); else {authReady=true;render();}
-});
+
+initAuth();
 render();
 </script>
 </body>
