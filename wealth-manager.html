@@ -72,7 +72,7 @@ function getQuizCategory(score){
 
 const SUPABASE_URL='https://qhtwdnngwilcdwxkurwk.supabase.co';
 const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSI6InFodHdkbm5nd2lsY2R3eGt1cndrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY1ODQzMjYsImV4cCI6MjEwMjE2MDMyNn0.SpmzihD1r-H8dHODNdPurt8n2Befbz3IFvExsLZQmLY';
-const supabaseClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{auth:{flowType:'pkce',detectSessionInUrl:true,autoRefreshToken:true,persistSession:true}});
+const supabaseClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{auth:{flowType:'implicit',detectSessionInUrl:true,autoRefreshToken:true,persistSession:true}});
 const GOOGLE_REDIRECT_URL='https://wealthos-plum.vercel.app/';
 const ADMIN_EMAIL='tung.edtech@gmail.com';
 const defaultData={profile:{goal:'Tự do tài chính',age:30,targetAge:45,quizAnswers:Array(13).fill(-1),quizScore:null},cashflow:{income:[0,0,0],expense:[0,0,0]},assets:{},debts:{}};
@@ -482,33 +482,24 @@ function render(full=true){
 function go(i){step=i;render()}
 function resetData(){if(confirm('Xóa toàn bộ dữ liệu đã lưu và khôi phục dữ liệu trống?')){data=cloneDefaultData();saveToSupabase();render();}}
 
-// Auth initialization: Supabase PKCE flow handles code exchange automatically
-supabaseClient.auth.onAuthStateChange((event,session)=>{
- console.log('Auth event:',event);
- if(event==='SIGNED_IN' && session?.user){
-  if(!currentUser || currentUser.id!==session.user.id){
-   // Clean URL after OAuth redirect
-   if(window.location.search.includes('code=') || window.location.hash.includes('access_token')){
-    window.history.replaceState(null,'',window.location.pathname);
-   }
-   loadUserData(session.user);
-  }
- } else if(event==='SIGNED_OUT'){
-  currentUser=null;authReady=true;render();
- } else if(event==='TOKEN_REFRESHED' && session?.user){
-  currentUser=session.user;
- }
-});
-
-// On page load, check for existing session
-(async()=>{
- const {data:{session}}=await supabaseClient.auth.getSession();
+// Auth initialization: implicit flow — token comes back in URL hash
+// Supabase client with detectSessionInUrl:true will auto-parse it
+let authInitialized=false;
+supabaseClient.auth.onAuthStateChange(async(event,session)=>{
+ console.log('Auth event:',event,session?.user?.email);
  if(session?.user){
-  await loadUserData(session.user);
- } else {
-  authReady=true;render();
+  // Clean URL hash after OAuth redirect
+  if(window.location.hash.includes('access_token')){
+   window.history.replaceState(null,'',window.location.pathname);
+  }
+  if(!currentUser || currentUser.id!==session.user.id){
+   await loadUserData(session.user);
+  }
+ } else if(authInitialized){
+  currentUser=null;authReady=true;render();
  }
-})();
+ authInitialized=true;
+});
 render();
 </script>
 </body>
