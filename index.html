@@ -73,7 +73,7 @@ function getQuizCategory(score){
 const SUPABASE_URL='https://qhtwdnngwilcdwxkurwk.supabase.co';
 const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSI6InFodHdkbm5nd2lsY2R3eGt1cndrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY1ODQzMjYsImV4cCI6MjEwMjE2MDMyNn0.SpmzihD1r-H8dHODNdPurt8n2Befbz3IFvExsLZQmLY';
 const supabaseClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
-const GOOGLE_REDIRECT_URL='https://lamtungpham.github.io/wealthos/';
+const GOOGLE_REDIRECT_URL='https://wealthos-plum.vercel.app/';
 const ADMIN_EMAIL='tung.edtech@gmail.com';
 const defaultData={profile:{goal:'Tự do tài chính',age:30,targetAge:45,quizAnswers:Array(13).fill(-1),quizScore:null},cashflow:{income:[0,0,0],expense:[0,0,0]},assets:{},debts:{}};
 let data=JSON.parse(JSON.stringify(defaultData));
