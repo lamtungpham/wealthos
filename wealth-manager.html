@@ -241,6 +241,115 @@ function entries(groups,kind){return groups.map(g=>`<div class="card p-5 mb-4"><
 function assets(){return header('Bạn đang có gì?','Liệt kê tài sản theo giá trị hiện tại, không cần quá chi tiết ngay từ đầu.')+wizardTop()+`<div class="max-w-4xl">${entries(assetGroups,'assets')}<div class="card p-5 flex justify-between items-center"><span class="font-bold">Tổng tài sản</span><b class="text-xl text-teal-700">${compact(sum(data.assets))}</b></div><div class="flex justify-between mt-5"><button onclick="go(2)" class="btn btn-ghost">← Quay lại</button><button onclick="go(4)" class="btn btn-primary">Tiếp tục →</button></div></div>`}
 function debts(){return header('Bạn đang nợ gì?','Ghi nhận dư nợ còn lại, không phải tổng hạn mức được cấp.')+wizardTop()+`<div class="max-w-4xl">${entries(debtGroups,'debts')}<div class="card p-5 flex justify-between items-center"><span class="font-bold">Tổng khoản nợ</span><b class="text-xl text-coral">${compact(sum(data.debts))}</b></div><div class="flex justify-between mt-5"><button onclick="go(3)" class="btn btn-ghost">← Quay lại</button><button onclick="save();go(0)" class="btn btn-primary">Hoàn tất & xem tổng quan ✓</button></div></div>`}
 
+// ===== STRATEGY NARRATIVE BUILDER =====
+function buildStrategyNarrative(a,qr,goalText,goalYears,ef){
+ let net=a.t.net;
+ let savings=a.savings;
+ let totalMonths=goalYears*12;
+ let canAccumulate=savings>0?savings*totalMonths:0;
+ let projectedNet=net+canAccumulate;
+ // Try to parse goal amount from goalText (look for numbers)
+ let goalMatch=goalText.match(/(\d+[.,]?\d*)\s*(tỷ|ty|tỉ|triệu|tr)/i);
+ let goalAmount=null;
+ if(goalMatch){
+  let num=parseFloat(goalMatch[1].replace(',','.'));
+  if(goalMatch[2].match(/tỷ|ty|tỉ/i)) goalAmount=num*1e9;
+  else goalAmount=num*1e6;
+ }
+ 
+ let html=`<div class="card p-6 mb-6 max-w-4xl" style="border-left:4px solid #0f766e"><div class="flex items-center gap-2 mb-4"><span class="text-lg">📋</span><h2 class="font-extrabold text-lg">Bản thuyết minh chiến lược</h2></div>`;
+ 
+ // 1. Goal feasibility assessment
+ html+=`<div class="mb-5"><h3 class="font-bold text-sm mb-2 text-teal-700">Đánh giá tính khả thi của mục tiêu</h3><div class="text-sm leading-7">`;
+ html+=`<p>Mục tiêu của bạn là <b>"${goalText}"</b> trong vòng <b>${goalYears} năm</b> tới.</p>`;
+ 
+ if(goalAmount){
+  let gap=goalAmount-net;
+  let monthlyNeeded=gap>0?gap/totalMonths:0;
+  let feasible=savings>=monthlyNeeded;
+  if(gap<=0){
+   html+=`<p class="mt-2">Với giá trị ròng hiện tại <b>${compact(net)}</b>, bạn đã đủ điều kiện về mặt tài chính để thực hiện mục tiêu này. Vấn đề còn lại là cơ cấu tài sản và tính thanh khoản — bạn có thể chuyển đổi tài sản đúng lúc không?</p>`;
+  } else if(feasible){
+   html+=`<p class="mt-2"><b style="color:#0f766e">✔ Mục tiêu khả thi.</b> Bạn cần thêm <b>${compact(gap)}</b> nữa so với giá trị ròng hiện tại (${compact(net)}). Với dòng tiền ròng <b>${compact(savings)}/tháng</b>, nếu duy trì đều đặn thì sau ${goalYears} năm bạn sẽ tích lũy thêm được khoảng <b>${compact(canAccumulate)}</b> — đủ để đạt mục tiêu.</p>`;
+   html+=`<p class="mt-2">Tuy nhiên, đây là kịch bản lý tưởng (không có biến cố). Để chắc chắn hơn, bạn nên tăng dòng tiền ròng lên <b>${compact(monthlyNeeded*1.2)}/tháng</b> (đệm 20% dự phòng).</p>`;
+  } else {
+   html+=`<p class="mt-2"><b style="color:#b54d47">⚠ Mục tiêu rất thách thức.</b> Bạn cần thêm <b>${compact(gap)}</b>, tức mỗi tháng phải tích lũy <b>${compact(monthlyNeeded)}</b>. Nhưng dòng tiền ròng hiện tại chỉ <b>${compact(savings)}/tháng</b>${savings<=0?' (đang âm!)':''}. Khoảng cách còn <b>${compact(monthlyNeeded-Math.max(savings,0))}/tháng</b>.</p>`;
+   html+=`<p class="mt-2">Để mục tiêu trở nên khả thi, bạn cần thay đổi đáng kể: tăng thu nhập, giảm chi tiêu, hoặc kéo dài thời hạn mục tiêu.</p>`;
+  }
+ } else {
+  // Can't parse goal amount, give general assessment
+  if(savings>0){
+   html+=`<p class="mt-2">Giá trị ròng hiện tại của bạn là <b>${compact(net)}</b>. Với dòng tiền ròng <b>${compact(savings)}/tháng</b>, sau ${goalYears} năm bạn có thể tích lũy thêm khoảng <b>${compact(canAccumulate)}</b>, nâng tổng giá trị ròng lên khoảng <b>${compact(projectedNet)}</b> (chưa tính lãi đầu tư).</p>`;
+  } else {
+   html+=`<p class="mt-2">Hiện tại dòng tiền của bạn đang âm (${compact(savings)}/tháng) — nghĩa là tài sản đang giảm dần. Nếu không thay đổi, mục tiêu sẽ ngày càng xa tầm tay.</p>`;
+  }
+ }
+ html+=`</div></div>`;
+
+ // 2. Action roadmap
+ html+=`<div class="mb-5"><h3 class="font-bold text-sm mb-2 text-teal-700">Lộ trình hành động đề xuất</h3><div class="text-sm leading-7">`;
+ 
+ let steps=[];
+ // Step 1: Emergency fund
+ if(ef.months<3){
+  steps.push(`<b>Bước 1 — Xây quỹ dự phòng khẩn cấp:</b> Trước hết, tích lũy đủ ${compact(ef.monthlyExpense*3)} (3 tháng chi tiêu) trong tài khoản thanh khoản cao. Hiện còn thiếu ${compact(ef.shortfall)}. Đây là nền tảng bắt buộc trước khi làm bất cứ điều gì khác.`);
+ } else {
+  steps.push(`<b>Bước 1 — Quỹ dự phòng đã ổn:</b> Bạn đã có ${ef.months.toFixed(1)} tháng dự phòng. Tiếp tục duy trì, không cần bổ sung thêm.`);
+ }
+ 
+ // Step 2: Kill bad debt
+ let consumerDebt=(Number(data.debts.cardDebt)||0)+(Number(data.debts.installment)||0)+(Number(data.debts.appLoan)||0)+(Number(data.debts.financeLoan)||0);
+ if(consumerDebt>0){
+  steps.push(`<b>Bước 2 — Xóa nợ lãi cao:</b> Trả hết ${compact(consumerDebt)} nợ tiêu dùng (lãi 18-50%/năm). Mỗi đồng trả nợ lãi cao tương đương với đầu tư sinh lời 20-50%. Thứ tự: Vay app → Thẻ tín dụng → Tín chấp → Trả góp.`);
+ } else {
+  steps.push(`<b>Bước 2 — Không có nợ xấu:</b> Tốt! Bạn không có nợ tiêu dùng lãi cao. Duy trì kỷ luật này.`);
+ }
+ 
+ // Step 3: Optimize cashflow
+ if(savings>0 && a.t.income>0){
+  let saveRate=pct(savings,a.t.income);
+  if(saveRate<20){
+   steps.push(`<b>Bước 3 — Tăng tỷ lệ tiết kiệm:</b> Hiện bạn tiết kiệm ${saveRate}% thu nhập. Hãy đặt mục tiêu 20-30% bằng cách: cắt giảm các khoản chi không thiết yếu (giải trí, ăn ngoài, mua sắm), đàm phán giảm các hóa đơn cố định (bảo hiểm, điện thoại, internet), hoặc tìm thêm nguồn thu nhập phụ (freelance, kinh doanh nhỏ, cho thuê tài sản).`);
+  } else {
+   steps.push(`<b>Bước 3 — Dòng tiền tốt:</b> Bạn đang tiết kiệm ${saveRate}% thu nhập (${compact(savings)}/tháng) — rất tốt. Để đẩy nhanh mục tiêu, có thể tăng thu nhập thêm qua: đàm phán lương, làm thêm dự án, tạo nguồn thu thụ động (cho thuê, cổ tức, lãi tiết kiệm).`);
+  }
+ } else if(savings<=0){
+  steps.push(`<b>Bước 3 — Khắc phục dòng tiền âm (QUAN TRỌNG NHẤT):</b> Bạn đang chi nhiều hơn kiếm được ${compact(Math.abs(savings))}/tháng. Không thể đạt bất kỳ mục tiêu nào nếu tình trạng này kéo dài. Hãy: (1) Liệt kê 5 khoản chi lớn nhất và cắt ít nhất 20%, (2) Tìm cách tăng thu nhập ngay (làm thêm, bán đồ không dùng), (3) Đặt ngân sách hàng tháng và tuân thủ nghiêm ngặt.`);
+ }
+ 
+ // Step 4: Invest according to profile
+ if(qr){
+  steps.push(`<b>Bước 4 — Đầu tư theo hồ sơ "${qr.label}":</b> Phân bổ tiền mới theo tỷ lệ ${qr.allocText}. Không cần thay đổi ngay tài sản hiện có — chỉ cần hướng dòng tiền mới vào nhóm còn thiếu. Đầu tư đều đặn mỗi tháng (DCA) thay vì chờ thời điểm.`);
+ } else {
+  steps.push(`<b>Bước 4 — Xác định phong cách đầu tư:</b> Hãy hoàn thành bài test 13 câu ở trang "Mục tiêu & Tính cách" để biết phân bổ tài sản phù hợp với bạn.`);
+ }
+ 
+ // Step 5: Review
+ steps.push(`<b>Bước 5 — Rà soát hàng tháng:</b> Mỗi tháng dành 15 phút cập nhật số liệu vào WealthOS. Theo dõi xem dòng tiền có đúng kế hoạch không, phân bổ có lệch không, và điều chỉnh kịp thời.`);
+ 
+ html+=`<ol class="space-y-3 mt-2">${steps.map(s=>`<li class="pl-1">${s}</li>`).join('')}</ol>`;
+ html+=`</div></div>`;
+
+ // 3. Income & expense recommendations
+ html+=`<div><h3 class="font-bold text-sm mb-2 text-teal-700">Gợi ý tăng thu — giảm chi</h3><div class="text-sm leading-7">`;
+ if(a.t.income>0){
+  let targetSave=Math.max(savings, a.t.income*0.3);
+  let needMore=targetSave-savings;
+  html+=`<p>Thu nhập hiện tại: <b>${compact(a.t.income)}/tháng</b>. Chi tiêu: <b>${compact(a.t.expense)}/tháng</b>. Tiết kiệm: <b>${compact(savings)}/tháng</b> (${pct(savings,a.t.income)}%).</p>`;
+  if(needMore>0){
+   html+=`<p class="mt-2">Để đẩy nhanh mục tiêu, bạn nên tăng dòng tiền ròng thêm <b>${compact(needMore)}/tháng</b>. Có 2 cách:</p>`;
+   html+=`<p class="mt-2"><b>Tăng thu nhập:</b> Đàm phán tăng lương, nhận dự án freelance, tạo sản phẩm số (khóa học, ebook), cho thuê tài sản nhàn rỗi, hoặc đầu tư sinh dòng tiền (cổ tức, lãi tiết kiệm).</p>`;
+   html+=`<p class="mt-2"><b>Giảm chi tiêu:</b> Rà soát các khoản định kỳ (subscriptions, bảo hiểm thừa, gói cước đắt), giảm ăn ngoài/giải trí xuống 70% mức hiện tại, áp dụng quy tắc 24h trước khi mua đồ không cần thiết.</p>`;
+  } else {
+   html+=`<p class="mt-2">Tỷ lệ tiết kiệm của bạn đã tốt. Để đẩy nhanh hơn, hãy tập trung vào tăng thu nhập: đàm phán lương, tạo nguồn thu thụ động, hoặc đầu tư tài sản sinh dòng tiền.</p>`;
+  }
+ }
+ html+=`</div></div>`;
+ 
+ html+=`</div>`;
+ return html;
+}
+
 // ===== INSIGHTS - Deep analysis =====
 function insights(){
  let a=analysis(),goalYears=Math.max(1,data.profile.targetAge-data.profile.age),goalText=data.profile.goal||'mục tiêu của bạn';
@@ -320,7 +429,10 @@ function insights(){
   tips.push({title:'Mục tiêu đang đến gần nhưng tài sản biến động cao',desc:`Bạn muốn đạt "${goalText}" trong ${goalYears} năm nữa. Tuy nhiên, ${pct(a.ab.growth,a.ab.investable)}% tài sản đầu tư đang nằm ở cổ phiếu và crypto — những tài sản có thể giảm 30-50% trong thời gian ngắn.`,action:`<b>Cảnh báo:</b> Với thời hạn chỉ ${goalYears} năm, nếu thị trường giảm mạnh bạn có thể không kịp hồi phục trước khi cần dùng tiền. Hãy bắt đầu chuyển dần một phần sang tài sản ổn định hơn (quỹ trái phiếu, tiết kiệm kỳ hạn) — càng gần mục tiêu, tỷ trọng an toàn càng nên cao.`,level:'warn'});
  }
 
- return header('Phân tích & Chiến lược','Đánh giá chi tiết dựa trên dữ liệu gia sản thực tế của bạn.')+`<div class="grid md:grid-cols-3 gap-4 mb-5">${metric('MỤC TIÊU',goalText,`${goalYears} năm để chuẩn bị`)}${metric('TỶ LỆ TIẾT KIỆM',pct(a.savings,a.t.income)+'%',a.savings>=0?'Dòng tiền dương — '+compact(a.savings)+'/tháng':'Dòng tiền âm',a.savings<0?'border-coral':'')}${metric('HỒ SƠ RỦI RO',qr?qr.label:'Chưa làm test',qr?data.profile.quizScore+'/47 điểm — '+qr.allocText:'Hoàn thành bài test 13 câu')}</div><div class="max-w-4xl"><div class="text-xs font-bold muted mb-3 uppercase tracking-wider">Phân tích chi tiết & Hành động cụ thể (${tips.length} mục)</div>${tips.map(t=>`<div class="advice-card ${t.level==='bad'?'danger':t.level==='warn'?'warning':''}"><div class="flex gap-3 items-start"><span class="tag ${t.level} h-fit mt-0.5">${t.level==='good'?'TỐT':t.level==='warn'?'LƯU Ý':'KHẨN CẤP'}</span><div class="flex-1"><b class="text-sm">${t.title}</b><p class="text-xs muted mt-1 leading-5">${t.desc}</p><div class="text-xs mt-3 leading-5 p-3 rounded-lg" style="background:rgba(0,0,0,.02)">${t.action}</div></div></div></div>`).join('')}</div>`;
+ // === STRATEGY NARRATIVE ===
+ let narrative=buildStrategyNarrative(a,qr,goalText,goalYears,ef);
+
+ return header('Phân tích & Chiến lược','Đánh giá chi tiết dựa trên dữ liệu gia sản thực tế của bạn.')+`<div class="grid md:grid-cols-3 gap-4 mb-5">${metric('MỤC TIÊU',goalText,`${goalYears} năm để chuẩn bị`)}${metric('TỶ LỆ TIẾT KIỆM',pct(a.savings,a.t.income)+'%',a.savings>=0?'Dòng tiền dương — '+compact(a.savings)+'/tháng':'Dòng tiền âm',a.savings<0?'border-coral':'')}${metric('HỒ SƠ RỦI RO',qr?qr.label:'Chưa làm test',qr?data.profile.quizScore+'/47 điểm — '+qr.allocText:'Hoàn thành bài test 13 câu')}</div>${narrative}<div class="max-w-4xl"><div class="text-xs font-bold muted mb-3 uppercase tracking-wider">Phân tích chi tiết & Hành động cụ thể (${tips.length} mục)</div>${tips.map(t=>`<div class="advice-card ${t.level==='bad'?'danger':t.level==='warn'?'warning':''}"><div class="flex gap-3 items-start"><span class="tag ${t.level} h-fit mt-0.5">${t.level==='good'?'TỐT':t.level==='warn'?'LƯU Ý':'KHẨN CẤP'}</span><div class="flex-1"><b class="text-sm">${t.title}</b><p class="text-xs muted mt-1 leading-5">${t.desc}</p><div class="text-xs mt-3 leading-5 p-3 rounded-lg" style="background:rgba(0,0,0,.02)">${t.action}</div></div></div></div>`).join('')}</div>`;
 }
 
 function renderCharts(){let a=analysis();if(step===0){chart('cashChart','bar',['Thu nhập','Chi tiêu','Dòng tiền ròng'],[a.t.income,a.t.expense,Math.max(0,a.savings)],['#47bca4','#ef786f','#6f91e8']);let vals=assetGroups.map(g=>g.items.reduce((s,x)=>s+(Number(data.assets[x[0]])||0),0));chart('allocationChart','doughnut',assetGroups.map(g=>g.title),vals,assetGroups.map(g=>g.color))}}
